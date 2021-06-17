@@ -4,9 +4,11 @@ mods_url                        = "https://storage.googleapis.com/stevecinema-us
 mods_manifest_url               = "https://storage.googleapis.com/stevecinema-us-download/mods/manifest.txt"
 # {0} = CEF branch
 # {1} = native platform [linux64, win64, macos, macos_arm]
-cef_release_url_format          = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/nocodec/Release/"
-cef_manifest_url_format         = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/nocodec/manifest.txt"
-cef_bsdiff_url_format           = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/bsdiff/"
+cef_nocodec_release_url_format  = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/nocodec/Release/"
+cef_nocodec_manifest_url_format = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/nocodec/manifest.txt?test=test"
+cef_codec_release_url_format    = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/codec/Release/"
+cef_codec_manifest_url_format   = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/codec/manifest.txt"
+cef_bsdiff_release_url_format   = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/bsdiff/Release/"
 cef_bsdiff_manifest_url_format  = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/bsdiff/manifest.txt"
 # {0} = minecraft version
 # {1} = fabric loader version
@@ -56,19 +58,37 @@ def download_installer_manifest():
 def download_mods_manifest():
     mods_manifest = split_remote_file(mods_manifest_url)
 
-    if (mods_manifest):
+    if mods_manifest:
         return mods_manifest
     else:
         print("Could not download mods manifest")
         exit()
 
-def download_cef_manifest():
-    cef_manifest = split_remote_file(cef_manifest_url)
+def download_cef_nocodec_manifest():
+    manifest = split_remote_file(cef_nocodec_manifest_url)
 
-    if (cef_manifest):
-        return cef_manifest
+    if manifest:
+        return manifest
     else:
-        print("Could not download CEF manifest")
+        print("Could not download CEF nocodec manifest")
+        exit()
+
+def download_cef_codec_manifest():
+    manifest = split_remote_file(cef_codec_manifest_url)
+
+    if manifest:
+        return manifest
+    else:
+        print("Could not download CEF codec manifest")
+        exit()
+
+def download_cef_bsdiff_manifest():
+    manifest = split_remote_file(cef_bsdiff_manifest_url)
+
+    if manifest:
+        return manifest
+    else:
+        print("Could not download CEF bsdiff manifest")
         exit()
 
 def verify_manifest_entry(entry, local_path, remote_path):
@@ -79,7 +99,7 @@ def verify_manifest_entry(entry, local_path, remote_path):
     file_path = os.path.join(local_path, file_name)
 
     # Check if file exists, and if so, verify it
-    if (os.path.exists(file_path)):
+    if os.path.exists(file_path):
         local_sha1 = sha1_of_file(file_path)
         if local_sha1 == sha1:
             skip_file = True
@@ -91,26 +111,94 @@ def verify_manifest_entry(entry, local_path, remote_path):
         remote_url = remote_path + file_name
         download_file(remote_url, file_path)
 
-def verify_cef(cef_manifest, minecraft_path):
+def verify_manifest_bsdiff_entry(non_patched_entry, patched_entry, local_path, remote_path, remote_patch_path):
+    download = True
+    patch = True
+
+    file_name = non_patched_entry[0]
+    non_patched_sha1 = non_patched_entry[1]
+    patched_sha1 = patched_entry[1]
+    file_path = os.path.join(local_path, file_name)
+
+    if os.path.exists(file_path):
+        local_sha1 = sha1_of_file(file_path)
+        if local_sha1 == patched_sha1:
+            download = False
+            patch = False
+        elif local_sha1 == non_patched_sha1:
+            download = False
+        else:
+            print("Mismatched hash for: " + file_name + "! Will redownload.")
+
+    # Download unpatched file if needed
+    if download:
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        remote_url = remote_path + file_name
+        download_file(remote_url, file_path)
+
+    # Patch file if needed
+    if patch:
+        # Download patch file
+        remote_url = cef_bsdiff_release_url + file_name + ".bsdiff"
+        bsdiff_file_path = file_path + ".bsdiff"
+        download_file(remote_url, bsdiff_file_path)
+
+        print("Patching " + file_path + " with " + bsdiff_file_path)
+        import bsdiff4
+        bsdiff4.file_patch_inplace(file_path, bsdiff_file_path)
+        print("Done!")
+
+def make_cef_dir():
     if sys.platform == "linux":
-        cef_path = os.path.join(minecraft_path, "chromium", "linux64")
+        cef_platform = "linux64"
     elif sys.platform == "darwin":
-        cef_path = os.path.join(minecraft_path, "chromium", "macos")
+        cef_platform = "macos"
     elif sys.platform == "win32":
-        cef_path = os.path.join(minecraft_path, "chromium", "win64")
+        cef_platform = "win64"
+
+    cef_path = os.path.join(minecraft_path, "chromium", cef_platform)
 
     if not os.path.isdir(cef_path):
         os.makedirs(cef_path, exist_ok=True)
 
-    for entry in cef_manifest:
-        verify_manifest_entry(entry, cef_path, cef_release_url)
+    return cef_path
+
+def verify_nocodec_cef(cef_nocodec_manifest, minecraft_path):
+    cef_path = make_cef_dir()
+
+    for entry in cef_nocodec_manifest:
+        verify_manifest_entry(entry, cef_path, cef_nocodec_release_url)
 
         # If on linux, make cef binaries executable
         if sys.platform == "linux":
             if entry[0] == "jcef_helper" or entry[0] == "chrome-sandbox":
                 make_executable_linux(os.path.join(cef_path, entry[0]))
     
-    print("CEF verified")
+    print("nocodec CEF verified")
+
+def verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path):
+    cef_path = make_cef_dir()
+
+    for non_patched_entry in cef_nocodec_manifest:
+        has_patch = False
+
+        for diff_entry in cef_bsdiff_manifest:
+            if diff_entry[0].replace(".bsdiff", "") == non_patched_entry[0]:
+                has_patch = True
+
+        if has_patch:
+            for patched_entry in cef_codec_manifest:
+                if patched_entry[0] == non_patched_entry[0]:
+                    verify_manifest_bsdiff_entry(non_patched_entry, patched_entry, cef_path, cef_nocodec_release_url, cef_bsdiff_release_url)
+        else:
+            verify_manifest_entry(non_patched_entry, cef_path, cef_nocodec_release_url)
+
+        # If on linux, make cef binaries executable
+        if sys.platform == "linux":
+            if non_patched_entry[0] == "jcef_helper" or non_patched_entry[0] == "chrome-sandbox":
+                make_executable_linux(os.path.join(cef_path, non_patched_entry[0]))
+    
+    print("codec CEF verified")
 
 def verify_mods(mods_manifest, minecraft_path):
     mods_path = os.path.join(minecraft_path, "mods", "stevecinema.com")
@@ -185,14 +273,14 @@ def find_minecraft():
     home_dir = str(Path.home())
 
     if sys.platform == "linux":
-        if (os.path.isdir(os.path.join(home_dir, ".minecraft"))):
+        if os.path.isdir(os.path.join(home_dir, ".minecraft")):
             minecraft_path = os.path.join(home_dir, ".minecraft")
     elif sys.platform == "darwin":
         if os.path.isdir(os.path.join(home_dir, "Library", "Application Support", "minecraft")):
             minecraft_path = os.path.join(home_dir, "Library", "Application Support", "minecraft")
     elif sys.platform == "win32":
         app_data_dir = os.getenv("APPDATA")
-        if (app_data_dir):
+        if app_data_dir:
             if os.path.isdir(os.path.join(app_data_dir, ".minecraft")):
                 minecraft_path = os.path.join(app_data_dir, ".minecraft")
 
@@ -216,18 +304,23 @@ elif sys.platform == "darwin":
 elif sys.platform == "win32":
     platform_name = "win64"
 
-cef_release_url = cef_release_url_format.format(cef_branch, platform_name)
-cef_manifest_url = cef_manifest_url_format.format(cef_branch, platform_name)
-cef_bsdiff_url = cef_bsdiff_url_format.format(cef_branch, platform_name)
+cef_nocodec_release_url = cef_nocodec_release_url_format.format(cef_branch, platform_name)
+cef_nocodec_manifest_url = cef_nocodec_manifest_url_format.format(cef_branch, platform_name)
+cef_codec_release_url = cef_codec_release_url_format.format(cef_branch, platform_name)
+cef_codec_manifest_url = cef_codec_manifest_url_format.format(cef_branch, platform_name)
+cef_bsdiff_release_url = cef_bsdiff_release_url_format.format(cef_branch, platform_name)
 cef_bsdiff_manifest_url = cef_bsdiff_manifest_url_format.format(cef_branch, platform_name)
 
-cef_manifest = download_cef_manifest()
+cef_nocodec_manifest = download_cef_nocodec_manifest()
+cef_codec_manifest = download_cef_codec_manifest()
+cef_bsdiff_manifest = download_cef_bsdiff_manifest()
 # ======== Manifests ========
 
 # Find Minecraft
 minecraft_path = find_minecraft()
 
-verify_cef(cef_manifest, minecraft_path)
+verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path)
+# verify_nocodec_cef(cef_nocodec_manifest, minecraft_path)
 verify_mods(mods_manifest, minecraft_path)
 
 # Format fabric meta URL
