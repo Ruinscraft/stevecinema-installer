@@ -2,3 +2,4 @@ Release/
 nocodec/
 codec/
 mods/
+__pycache__/*

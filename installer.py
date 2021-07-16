@@ -19,6 +19,68 @@ import sys
 import json
 import hashlib
 import urllib.request
+import wx
+import mc_finder
+
+# Find Minecraft
+minecraft_path = mc_finder.find_minecraft()
+
+class MainFrame(wx.Frame):
+
+    def __init__(self, parent, title):
+        super(MainFrame, self).__init__(parent, title=title, size=(600, 400))
+
+        self.InitUI()
+        self.Centre()
+
+    def InitUI(self):
+        panel = wx.Panel(self)
+        sizer = wx.GridBagSizer(4, 4)
+
+        text1 = wx.StaticText(panel, label="Minecraft Location")
+        sizer.Add(text1, pos=(0, 0), flag=wx.TOP|wx.LEFT|wx.BOTTOM)
+        
+        self.mcLocText = wx.TextCtrl(panel, value=minecraft_path)
+        sizer.Add(self.mcLocText, pos=(1, 0), span=(1, 4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
+        mcLocButton = wx.Button(panel, label="Choose")
+        mcLocButton.Bind(wx.EVT_BUTTON, self.onChooseButtonPress) 
+        sizer.Add(mcLocButton, pos=(1, 4))
+
+        self.logCtrl = wx.TextCtrl(panel, style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
+        sizer.Add(self.logCtrl, pos=(2, 0), span=(1, 5), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
+
+        self.patchButton = wx.Button(panel, label="Patch")
+        self.patchButton.Bind(wx.EVT_BUTTON, self.onPatchButtonPress) 
+        sizer.Add(self.patchButton, pos=(3, 4))
+
+        sizer.AddGrowableCol(1)
+        sizer.AddGrowableCol(2)
+        sizer.AddGrowableRow(2)
+
+        panel.SetSizer(sizer)
+
+    def onChooseButtonPress(self, event):
+        dialog = wx.DirDialog(None, "Choose Minecraft Location:")
+        if dialog.ShowModal() == wx.ID_OK:
+            self.mcLocText.SetValue(dialog.GetPath())
+        dialog.Destroy()
+
+    def onPatchButtonPress(self, event):
+        import threading
+        verifyCefThread = threading.Thread(target=verify_codec_cef, args=(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path))
+        verifyCefThread.start()
+
+    def log(self, msg):
+        wx.CallAfter(self.logCtrl.write, msg + "\n")
+    
+    def markAsInstalling(self):
+        wx.CallAfter(self.patchButton.Disable)
+
+    def markAsComplete(self):
+        wx.CallAfter(self.patchButton.Enable)
+
+mcpApp = wx.App()
+mainFrame = MainFrame(None, title='Steve Cinema Installer for Minecraft')
 
 def make_executable_linux(path):
     mode = os.stat(path).st_mode
@@ -42,9 +104,9 @@ def split_remote_file(url):
     return split
 
 def download_file(url, dest_path):
-    print(url + " -> " + dest_path)
+    mainFrame.log(url + " -> " + dest_path)
     urllib.request.urlretrieve(url, dest_path)
-    print("Complete")
+    mainFrame.log("Complete")
 
 def download_installer_manifest():
     installer_manifest = split_remote_file(installer_manifest_url)
@@ -52,8 +114,7 @@ def download_installer_manifest():
     if installer_manifest:
         return installer_manifest
     else:
-        print("Could not download installer manifest")
-        exit()
+        mainFrame.log("Could not download installer manifest")
 
 def download_mods_manifest():
     mods_manifest = split_remote_file(mods_manifest_url)
@@ -61,8 +122,7 @@ def download_mods_manifest():
     if mods_manifest:
         return mods_manifest
     else:
-        print("Could not download mods manifest")
-        exit()
+        mainFrame.log("Could not download mods manifest")
 
 def download_cef_nocodec_manifest():
     manifest = split_remote_file(cef_nocodec_manifest_url)
@@ -70,7 +130,7 @@ def download_cef_nocodec_manifest():
     if manifest:
         return manifest
     else:
-        print("Could not download CEF nocodec manifest")
+        mainFrame.log("Could not download CEF nocodec manifest")
         exit()
 
 def download_cef_codec_manifest():
@@ -79,7 +139,7 @@ def download_cef_codec_manifest():
     if manifest:
         return manifest
     else:
-        print("Could not download CEF codec manifest")
+        mainFrame.log("Could not download CEF codec manifest")
         exit()
 
 def download_cef_bsdiff_manifest():
@@ -88,7 +148,7 @@ def download_cef_bsdiff_manifest():
     if manifest:
         return manifest
     else:
-        print("Could not download CEF bsdiff manifest")
+        mainFrame.log("Could not download CEF bsdiff manifest")
         exit()
 
 def verify_manifest_entry(entry, local_path, remote_path):
@@ -104,7 +164,7 @@ def verify_manifest_entry(entry, local_path, remote_path):
         if local_sha1 == sha1:
             skip_file = True
         else:
-            print("Mismatched hash for: " + file_name + "! Will redownload.")
+            mainFrame.log("Mismatched hash for: " + file_name + "! Will redownload.")
 
     if not skip_file:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -128,7 +188,7 @@ def verify_manifest_bsdiff_entry(non_patched_entry, patched_entry, local_path, r
         elif local_sha1 == non_patched_sha1:
             download = False
         else:
-            print("Mismatched hash for: " + file_name + "! Will redownload.")
+            mainFrame.log("Mismatched hash for: " + file_name + "! Will redownload.")
 
     # Download unpatched file if needed
     if download:
@@ -143,10 +203,10 @@ def verify_manifest_bsdiff_entry(non_patched_entry, patched_entry, local_path, r
         bsdiff_file_path = file_path + ".bsdiff"
         download_file(remote_url, bsdiff_file_path)
 
-        print("Patching " + file_path + " with " + bsdiff_file_path)
+        mainFrame.log("Patching " + file_path + " with " + bsdiff_file_path)
         import bsdiff4
         bsdiff4.file_patch_inplace(file_path, bsdiff_file_path)
-        print("Done!")
+        mainFrame.log("Done!")
 
 def make_cef_dir():
     if sys.platform == "linux":
@@ -174,9 +234,11 @@ def verify_nocodec_cef(cef_nocodec_manifest, minecraft_path):
             if entry[0] == "jcef_helper" or entry[0] == "chrome-sandbox":
                 make_executable_linux(os.path.join(cef_path, entry[0]))
     
-    print("nocodec CEF verified")
+    mainFrame.log("nocodec CEF verified")
 
 def verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path):
+    mainFrame.markAsInstalling()
+
     cef_path = make_cef_dir()
 
     for non_patched_entry in cef_nocodec_manifest:
@@ -198,7 +260,8 @@ def verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manife
             if non_patched_entry[0] == "jcef_helper" or non_patched_entry[0] == "chrome-sandbox":
                 make_executable_linux(os.path.join(cef_path, non_patched_entry[0]))
     
-    print("codec CEF verified")
+    mainFrame.log("codec CEF verified")
+    mainFrame.markAsComplete()
 
 def verify_mods(mods_manifest, minecraft_path):
     mods_path = os.path.join(minecraft_path, "mods", "stevecinema.com")
@@ -209,7 +272,7 @@ def verify_mods(mods_manifest, minecraft_path):
     for entry in mods_manifest:
         verify_manifest_entry(entry, mods_path, mods_url)
 
-    print("Mods verified")
+    mainFrame.log("Mods verified")
 
 def verify_launcher_profile(minecraft_path, profile_name):
     profile_path = os.path.join(minecraft_path, "versions", profile_name)
@@ -239,8 +302,8 @@ def verify_profiles_json(minecraft_path, profile_name):
     profiles_json_path = os.path.join(minecraft_path, "launcher_profiles.json")
 
     if not os.path.exists(profiles_json_path):
-        print("Could not find launcher_profiles.json. Is Minecraft fully installed and has been run at least once?")
-        exit()
+        mainFrame.log("Could not find launcher_profiles.json. Is Minecraft fully installed and has been run at least once?")
+        return
 
     with open(profiles_json_path, "r") as file_r:
         root = json.load(file_r)
@@ -268,29 +331,6 @@ def verify_profiles_json(minecraft_path, profile_name):
         with open(profiles_json_path, "w") as file_w:
             json.dump(root, file_w)
         
-def find_minecraft():
-    from pathlib import Path
-    home_dir = str(Path.home())
-
-    if sys.platform == "linux":
-        if os.path.isdir(os.path.join(home_dir, ".minecraft")):
-            minecraft_path = os.path.join(home_dir, ".minecraft")
-    elif sys.platform == "darwin":
-        if os.path.isdir(os.path.join(home_dir, "Library", "Application Support", "minecraft")):
-            minecraft_path = os.path.join(home_dir, "Library", "Application Support", "minecraft")
-    elif sys.platform == "win32":
-        app_data_dir = os.getenv("APPDATA")
-        if app_data_dir:
-            if os.path.isdir(os.path.join(app_data_dir, ".minecraft")):
-                minecraft_path = os.path.join(app_data_dir, ".minecraft")
-
-    if minecraft_path:
-        print("Found Minecraft at: " + minecraft_path)
-        return minecraft_path
-    else:
-        print("Could not find Minecraft install location")
-        exit()
-
 # ======== Manifests ========
 installer_manifest = download_installer_manifest()
 mods_manifest = download_mods_manifest()
@@ -314,21 +354,22 @@ cef_bsdiff_manifest_url = cef_bsdiff_manifest_url_format.format(cef_branch, plat
 cef_nocodec_manifest = download_cef_nocodec_manifest()
 cef_codec_manifest = download_cef_codec_manifest()
 cef_bsdiff_manifest = download_cef_bsdiff_manifest()
-# ======== Manifests ========
-
-# Find Minecraft
-minecraft_path = find_minecraft()
-
-verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path)
-# verify_nocodec_cef(cef_nocodec_manifest, minecraft_path)
-verify_mods(mods_manifest, minecraft_path)
 
 # Format fabric meta URL
 minecraft_version = installer_manifest[2][1]
 fabric_loader_version = installer_manifest[3][1]
 fabric_profile_url = fabric_profile_url_format.format(minecraft_version, fabric_loader_version)
+# ======== Manifests ========
 
-# Verify profile information
-profile_name = "stevecinema-" + fabric_loader_version + "-" + minecraft_version
-verify_launcher_profile(minecraft_path, profile_name)
-verify_profiles_json(minecraft_path, profile_name)
+# LETS GET THE SHOW STARTED
+mainFrame.Show()
+mcpApp.MainLoop()
+
+# verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path)
+# # verify_nocodec_cef(cef_nocodec_manifest, minecraft_path)
+# verify_mods(mods_manifest, minecraft_path)
+
+# # Verify profile information
+# profile_name = "stevecinema-" + fabric_loader_version + "-" + minecraft_version
+# verify_launcher_profile(minecraft_path, profile_name)
+# verify_profiles_json(minecraft_path, profile_name)
