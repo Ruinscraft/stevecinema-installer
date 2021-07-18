@@ -1,4 +1,5 @@
 installer_manifest_url          = "https://storage.googleapis.com/stevecinema-us-download/installer/manifest.txt"
+profile_url_format              = "https://storage.googleapis.com/stevecinema-us-download/installer/profiles/{0}.json"
 profile_icon_url                = "https://storage.googleapis.com/stevecinema-us-download/installer/profile_icon"
 mods_url                        = "https://storage.googleapis.com/stevecinema-us-download/mods/"
 mods_manifest_url               = "https://storage.googleapis.com/stevecinema-us-download/mods/manifest.txt"
@@ -10,9 +11,6 @@ cef_codec_release_url_format    = "https://storage.googleapis.com/stevecinema-us
 cef_codec_manifest_url_format   = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/codec/manifest.txt"
 cef_bsdiff_release_url_format   = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/bsdiff/Release/"
 cef_bsdiff_manifest_url_format  = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/bsdiff/manifest.txt"
-# {0} = minecraft version
-# {1} = fabric loader version
-fabric_profile_url_format       = "https://meta.fabricmc.net/v2/versions/loader/{0}/{1}/profile/json"
 
 import os
 import sys
@@ -67,12 +65,20 @@ class MainFrame(wx.Frame):
 
     def onPatchButtonPress(self, event):
         import threading
-        verifyCefThread = threading.Thread(target=verify_codec_cef, args=(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path))
-        verifyCefThread.start()
+        installThread = threading.Thread(target=self.install)
+        installThread.start()
 
     def log(self, msg):
         wx.CallAfter(self.logCtrl.write, msg + "\n")
     
+    def install(self):
+        self.markAsInstalling()
+        verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path)
+        verify_mods(mods_manifest, minecraft_path)
+        verify_launcher_profile(minecraft_path, profile_name)
+        verify_profiles_json(minecraft_path, profile_name)
+        self.markAsComplete()
+
     def markAsInstalling(self):
         wx.CallAfter(self.patchButton.Disable)
 
@@ -284,7 +290,7 @@ def verify_launcher_profile(minecraft_path, profile_name):
     profile_jar_path = os.path.join(profile_path, profile_name + ".jar")
 
     if not os.path.exists(profile_json_path):
-        download_file(fabric_profile_url, profile_json_path)
+        download_file(profile_url, profile_json_path)
 
         # Change the profile identity and save the file back
         with open(profile_json_path, "r") as file_r:
@@ -356,20 +362,12 @@ cef_codec_manifest = download_cef_codec_manifest()
 cef_bsdiff_manifest = download_cef_bsdiff_manifest()
 
 # Format fabric meta URL
-minecraft_version = installer_manifest[2][1]
-fabric_loader_version = installer_manifest[3][1]
-fabric_profile_url = fabric_profile_url_format.format(minecraft_version, fabric_loader_version)
+profile_name = installer_manifest[2][1]
+profile_url = profile_url_format.format(profile_name)
 # ======== Manifests ========
 
 # LETS GET THE SHOW STARTED
 mainFrame.Show()
 mcpApp.MainLoop()
 
-# verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path)
-# # verify_nocodec_cef(cef_nocodec_manifest, minecraft_path)
-# verify_mods(mods_manifest, minecraft_path)
-
-# # Verify profile information
-# profile_name = "stevecinema-" + fabric_loader_version + "-" + minecraft_version
-# verify_launcher_profile(minecraft_path, profile_name)
-# verify_profiles_json(minecraft_path, profile_name)
+print("Exiting")
