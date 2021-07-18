@@ -17,6 +17,7 @@ import sys
 import json
 import hashlib
 import urllib.request
+import threading
 import wx
 import mc_finder
 
@@ -29,6 +30,7 @@ class MainFrame(wx.Frame):
         super(MainFrame, self).__init__(parent, title=title, size=(600, 400))
 
         self.InitUI()
+        self.SetIcon(wx.Icon("./icon.ico"))
         self.Centre()
 
     def InitUI(self):
@@ -47,9 +49,13 @@ class MainFrame(wx.Frame):
         self.logCtrl = wx.TextCtrl(panel, style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
         sizer.Add(self.logCtrl, pos=(2, 0), span=(1, 5), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
 
-        self.patchButton = wx.Button(panel, label="Patch")
-        self.patchButton.Bind(wx.EVT_BUTTON, self.onPatchButtonPress) 
-        sizer.Add(self.patchButton, pos=(3, 4))
+        self.uninstallButton = wx.Button(panel, label="Uninstall")
+        self.uninstallButton.Bind(wx.EVT_BUTTON, self.onUninstallButtonPress) 
+        sizer.Add(self.uninstallButton, pos=(3, 0))
+
+        self.installButton = wx.Button(panel, label="Install / Verify")
+        self.installButton.Bind(wx.EVT_BUTTON, self.onInstallButtonPress) 
+        sizer.Add(self.installButton, pos=(3, 4))
 
         sizer.AddGrowableCol(1)
         sizer.AddGrowableCol(2)
@@ -63,27 +69,40 @@ class MainFrame(wx.Frame):
             self.mcLocText.SetValue(dialog.GetPath())
         dialog.Destroy()
 
-    def onPatchButtonPress(self, event):
-        import threading
+    def onUninstallButtonPress(self, event):
+        uninstallThread = threading.Thread(target=self.uninstall)
+        uninstallThread.start()
+
+    def onInstallButtonPress(self, event):
         installThread = threading.Thread(target=self.install)
         installThread.start()
 
     def log(self, msg):
         wx.CallAfter(self.logCtrl.write, msg + "\n")
-    
+
+    def uninstall(self):
+        self.disableButtons()
+        import uninstall
+        uninstall.uninstall(minecraft_path)
+        self.log("Uninstall Complete!")
+        self.enableButtons()
+
     def install(self):
-        self.markAsInstalling()
+        self.disableButtons()
         verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path)
         verify_mods(mods_manifest, minecraft_path)
         verify_launcher_profile(minecraft_path, profile_name)
         verify_profiles_json(minecraft_path, profile_name)
-        self.markAsComplete()
+        self.log("Installation Complete!")
+        self.enableButtons()
 
-    def markAsInstalling(self):
-        wx.CallAfter(self.patchButton.Disable)
+    def disableButtons(self):
+        wx.CallAfter(self.installButton.Disable)
+        wx.CallAfter(self.uninstallButton.Disable)
 
-    def markAsComplete(self):
-        wx.CallAfter(self.patchButton.Enable)
+    def enableButtons(self):
+        wx.CallAfter(self.installButton.Enable)
+        wx.CallAfter(self.uninstallButton.Enable)
 
 mcpApp = wx.App()
 mainFrame = MainFrame(None, title='Steve Cinema Installer for Minecraft')
@@ -110,7 +129,7 @@ def split_remote_file(url):
     return split
 
 def download_file(url, dest_path):
-    mainFrame.log(url + " -> " + dest_path)
+    mainFrame.log("Downloading " + url + " -> " + dest_path)
     urllib.request.urlretrieve(url, dest_path)
     mainFrame.log("Complete")
 
@@ -212,7 +231,7 @@ def verify_manifest_bsdiff_entry(non_patched_entry, patched_entry, local_path, r
         mainFrame.log("Patching " + file_path + " with " + bsdiff_file_path)
         import bsdiff4
         bsdiff4.file_patch_inplace(file_path, bsdiff_file_path)
-        mainFrame.log("Done!")
+        mainFrame.log("Complete")
 
 def make_cef_dir():
     if sys.platform == "linux":
@@ -240,11 +259,9 @@ def verify_nocodec_cef(cef_nocodec_manifest, minecraft_path):
             if entry[0] == "jcef_helper" or entry[0] == "chrome-sandbox":
                 make_executable_linux(os.path.join(cef_path, entry[0]))
     
-    mainFrame.log("nocodec CEF verified")
+    mainFrame.log("Nocodec-CEF verified")
 
 def verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path):
-    mainFrame.markAsInstalling()
-
     cef_path = make_cef_dir()
 
     for non_patched_entry in cef_nocodec_manifest:
@@ -266,8 +283,7 @@ def verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manife
             if non_patched_entry[0] == "jcef_helper" or non_patched_entry[0] == "chrome-sandbox":
                 make_executable_linux(os.path.join(cef_path, non_patched_entry[0]))
     
-    mainFrame.log("codec CEF verified")
-    mainFrame.markAsComplete()
+    mainFrame.log("Codec-CEF verified")
 
 def verify_mods(mods_manifest, minecraft_path):
     mods_path = os.path.join(minecraft_path, "mods", "stevecinema.com")
