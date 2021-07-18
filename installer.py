@@ -383,6 +383,7 @@ profile_url = profile_url_format.format(profile_name)
 # ======== Manifests ========
 
 # LETS GET THE SHOW STARTED
+wx.MessageBox("stevecinema-installer Disclaimer\n\n\nThis software contains binary patches for CEF to include additional codecs (AVC & MPEG-4). The end user is responsible for compiling the final binary product via this helper-software. See the Google Chrome license for more info here: https://www.google.com/chrome/terms/", "Message", wx.OK|wx.ICON_INFORMATION)
 mainFrame.Show()
 mcpApp.MainLoop()
 
