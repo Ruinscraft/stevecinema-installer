@@ -16,10 +16,12 @@ import os
 import sys
 import json
 import hashlib
+import urllib
 import urllib.request
 import threading
-import wx
 import mc_finder
+
+import wx
 
 # Find Minecraft
 minecraft_path = mc_finder.find_minecraft()
@@ -107,10 +109,17 @@ class MainFrame(wx.Frame):
 mcpApp = wx.App()
 mainFrame = MainFrame(None, title='Steve Cinema Installer for Minecraft')
 
-def make_executable_linux(path):
-    mode = os.stat(path).st_mode
+def make_executable_nix(file_path):
+    mode = os.stat(file_path).st_mode
     mode |= (mode & 0o444) >> 2
-    os.chmod(path, mode)
+    os.chmod(file_path, mode)
+
+def make_executable_recursive_nix(path):
+    for root, dirs, files in os.walk(path):  
+        for momo in dirs:  
+            make_executable_nix(os.path.join(root, momo))
+        for momo in files:
+            make_executable_nix(os.path.join(root, momo))
 
 def sha1_of_file(file_name):
     sha1 = hashlib.sha1()
@@ -130,8 +139,14 @@ def split_remote_file(url):
 
 def download_file(url, dest_path):
     mainFrame.log("Downloading " + url + " -> " + dest_path)
-    urllib.request.urlretrieve(url, dest_path)
+    urllib.request.urlretrieve(url.replace(" ", "%20"), dest_path)
     mainFrame.log("Complete")
+
+def manifest_entry_get_file(entry):
+    return ' '.join(entry[0:len(entry) - 1])
+
+def manifest_entry_get_hash(entry):
+    return entry[-1]
 
 def download_installer_manifest():
     installer_manifest = split_remote_file(installer_manifest_url)
@@ -179,8 +194,8 @@ def download_cef_bsdiff_manifest():
 def verify_manifest_entry(entry, local_path, remote_path):
     skip_file = False
 
-    file_name = entry[0]
-    sha1 = entry[1]
+    file_name = manifest_entry_get_file(entry)
+    sha1 = manifest_entry_get_hash(entry)
     file_path = os.path.join(local_path, file_name)
 
     # Check if file exists, and if so, verify it
@@ -200,9 +215,9 @@ def verify_manifest_bsdiff_entry(non_patched_entry, patched_entry, local_path, r
     download = True
     patch = True
 
-    file_name = non_patched_entry[0]
-    non_patched_sha1 = non_patched_entry[1]
-    patched_sha1 = patched_entry[1]
+    file_name = manifest_entry_get_file(non_patched_entry)
+    non_patched_sha1 = manifest_entry_get_hash(non_patched_entry)
+    patched_sha1 = manifest_entry_get_hash(patched_entry)
     file_path = os.path.join(local_path, file_name)
 
     if os.path.exists(file_path):
@@ -254,10 +269,12 @@ def verify_nocodec_cef(cef_nocodec_manifest, minecraft_path):
     for entry in cef_nocodec_manifest:
         verify_manifest_entry(entry, cef_path, cef_nocodec_release_url)
 
-        # If on linux, make cef binaries executable
         if sys.platform == "linux":
-            if entry[0] == "jcef_helper" or entry[0] == "chrome-sandbox":
-                make_executable_linux(os.path.join(cef_path, entry[0]))
+            file_name = manifest_entry_get_file(entry)
+            if file_name == "jcef_helper" or file_name == "chrome-sandbox":
+                make_executable_nix(os.path.join(cef_path, file_name))
+        elif sys.platform == "darwin":
+            make_executable_recursive_nix(cef_path)
     
     mainFrame.log("Nocodec-CEF verified")
 
@@ -265,24 +282,32 @@ def verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manife
     cef_path = make_cef_dir()
 
     for non_patched_entry in cef_nocodec_manifest:
+        non_patched_file_name = manifest_entry_get_file(non_patched_entry)
+
         has_patch = False
 
         for diff_entry in cef_bsdiff_manifest:
-            if diff_entry[0].replace(".bsdiff", "") == non_patched_entry[0]:
+            diff_file_name = manifest_entry_get_file(diff_entry)
+            diff_hash = manifest_entry_get_hash(diff_entry)
+
+            if diff_file_name.replace(".bsdiff", "") == non_patched_file_name:
                 has_patch = True
 
         if has_patch:
             for patched_entry in cef_codec_manifest:
-                if patched_entry[0] == non_patched_entry[0]:
+                patched_file_name = manifest_entry_get_file(patched_entry)
+
+                if patched_file_name == non_patched_file_name:
                     verify_manifest_bsdiff_entry(non_patched_entry, patched_entry, cef_path, cef_nocodec_release_url, cef_bsdiff_release_url)
         else:
             verify_manifest_entry(non_patched_entry, cef_path, cef_nocodec_release_url)
 
-        # If on linux, make cef binaries executable
         if sys.platform == "linux":
-            if non_patched_entry[0] == "jcef_helper" or non_patched_entry[0] == "chrome-sandbox":
-                make_executable_linux(os.path.join(cef_path, non_patched_entry[0]))
-    
+            if non_patched_file_name == "jcef_helper" or non_patched_file_name == "chrome-sandbox":
+                make_executable_nix(os.path.join(cef_path, non_patched_file_name))
+        elif sys.platform == "darwin":
+            make_executable_recursive_nix(cef_path)
+
     mainFrame.log("Codec-CEF verified")
 
 def verify_mods(mods_manifest, minecraft_path):
