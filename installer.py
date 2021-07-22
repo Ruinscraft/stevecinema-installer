@@ -23,17 +23,16 @@ import mc_finder
 
 import wx
 
-# Find Minecraft
-minecraft_path = mc_finder.find_minecraft()
-
 class MainFrame(wx.Frame):
 
     def __init__(self, parent, title):
         super(MainFrame, self).__init__(parent, title=title, size=(600, 400))
 
+        self.total_files_downloaded = 0
+        self.minecraft_path = mc_finder.find_minecraft()
+
         self.InitUI()
         self.Centre()
-        self.total_files_downloaded = 0
 
     def InitUI(self):
         panel = wx.Panel(self)
@@ -42,7 +41,7 @@ class MainFrame(wx.Frame):
         text1 = wx.StaticText(panel, label="Minecraft Location")
         sizer.Add(text1, pos=(0, 0), flag=wx.TOP|wx.LEFT|wx.BOTTOM)
         
-        self.mcLocText = wx.TextCtrl(panel, value=minecraft_path)
+        self.mcLocText = wx.TextCtrl(panel, value=self.minecraft_path)
         sizer.Add(self.mcLocText, pos=(1, 0), span=(1, 5), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
         mcLocButton = wx.Button(panel, label="Choose")
         mcLocButton.Bind(wx.EVT_BUTTON, self.onChooseButtonPress) 
@@ -82,6 +81,7 @@ class MainFrame(wx.Frame):
         dialog = wx.DirDialog(None, "Choose Minecraft Location:")
         if dialog.ShowModal() == wx.ID_OK:
             self.mcLocText.SetValue(dialog.GetPath())
+            self.minecraft_path = dialog.GetPath()
         dialog.Destroy()
 
     def onUninstallButtonPress(self, event):
@@ -98,7 +98,7 @@ class MainFrame(wx.Frame):
     def uninstall(self):
         self.disableButtons()
         import uninstall
-        uninstall.uninstall(minecraft_path)
+        uninstall.uninstall(self.minecraft_path)
         self.log("Uninstall Complete!")
         wx.CallAfter(wx.MessageBox, "Steve Cinema content has been removed from your system.", "Complete!")
         self.enableButtons()
@@ -106,10 +106,10 @@ class MainFrame(wx.Frame):
     def install(self):
         self.total_files_downloaded = 0
         self.disableButtons()
-        verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path)
-        verify_mods(mods_manifest, minecraft_path)
-        verify_launcher_profile(minecraft_path, profile_name)
-        verify_profiles_json(minecraft_path, profile_name)
+        verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, self.minecraft_path)
+        verify_mods(mods_manifest, self.minecraft_path)
+        verify_launcher_profile(self.minecraft_path, profile_name)
+        verify_profiles_json(self.minecraft_path, profile_name)
         self.log("Installation Complete!")
         wx.CallAfter(wx.MessageBox, "You may close this program. Open Minecraft with the new Steve Cinema profile to play!", "Complete!")
         self.enableButtons()
@@ -264,7 +264,7 @@ def verify_manifest_bsdiff_entry(non_patched_entry, patched_entry, local_path, r
         bsdiff4.file_patch_inplace(file_path, bsdiff_file_path)
         mainFrame.log("Complete")
 
-def make_cef_dir():
+def make_cef_dir(minecraft_path):
     if sys.platform == "linux":
         cef_platform = "linux64"
     elif sys.platform == "darwin":
@@ -280,7 +280,7 @@ def make_cef_dir():
     return cef_path
 
 def verify_nocodec_cef(cef_nocodec_manifest, minecraft_path):
-    cef_path = make_cef_dir()
+    cef_path = make_cef_dir(minecraft_path)
 
     for entry in cef_nocodec_manifest:
         verify_manifest_entry(entry, cef_path, cef_nocodec_release_url)
@@ -295,7 +295,7 @@ def verify_nocodec_cef(cef_nocodec_manifest, minecraft_path):
     mainFrame.log("Nocodec-CEF verified")
 
 def verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path):
-    cef_path = make_cef_dir()
+    cef_path = make_cef_dir(minecraft_path)
 
     for non_patched_entry in cef_nocodec_manifest:
         non_patched_file_name = manifest_entry_get_file(non_patched_entry)
