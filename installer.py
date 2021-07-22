@@ -32,7 +32,6 @@ class MainFrame(wx.Frame):
         super(MainFrame, self).__init__(parent, title=title, size=(600, 400))
 
         self.InitUI()
-        self.SetIcon(wx.Icon("./icon.ico"))
         self.Centre()
 
     def InitUI(self):
@@ -87,6 +86,7 @@ class MainFrame(wx.Frame):
         import uninstall
         uninstall.uninstall(minecraft_path)
         self.log("Uninstall Complete!")
+        wx.MessageBox("Steve Cinema content has been removed from your system.", "Complete!")
         self.enableButtons()
 
     def install(self):
@@ -96,6 +96,7 @@ class MainFrame(wx.Frame):
         verify_launcher_profile(minecraft_path, profile_name)
         verify_profiles_json(minecraft_path, profile_name)
         self.log("Installation Complete!")
+        wx.MessageBox("You may close this program. Open Minecraft with the new Steve Cinema profile to play!", "Complete!")
         self.enableButtons()
 
     def disableButtons(self):
@@ -171,7 +172,6 @@ def download_cef_nocodec_manifest():
         return manifest
     else:
         mainFrame.log("Could not download CEF nocodec manifest")
-        exit()
 
 def download_cef_codec_manifest():
     manifest = split_remote_file(cef_codec_manifest_url)
@@ -180,16 +180,16 @@ def download_cef_codec_manifest():
         return manifest
     else:
         mainFrame.log("Could not download CEF codec manifest")
-        exit()
 
 def download_cef_bsdiff_manifest():
     manifest = split_remote_file(cef_bsdiff_manifest_url)
 
-    if manifest:
-        return manifest
-    else:
-        mainFrame.log("Could not download CEF bsdiff manifest")
-        exit()
+    return manifest;
+    # temp fix for macos
+    # if manifest:
+    #     return manifest
+    # else:
+    #     mainFrame.log("Could not download CEF bsdiff manifest")
 
 def verify_manifest_entry(entry, local_path, remote_path):
     skip_file = False
@@ -360,7 +360,7 @@ def verify_profiles_json(minecraft_path, profile_name):
             profile = profiles[profile_name]
         else:
             import datetime
-            iso_time = datetime.datetime.now().isoformat()[:-6] + 'Z'
+            iso_time = datetime.datetime.now().isoformat() + 'Z'
             with urllib.request.urlopen(profile_icon_url) as response:
                 profile_icon = response.read().decode("utf-8")
             profile = {

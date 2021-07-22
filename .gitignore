@@ -2,4 +2,8 @@ Release/
 nocodec/
 codec/
 mods/
-__pycache__/*
+__pycache__/
+*.spec
+build/
+dist/
+.DS_Store
