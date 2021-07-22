@@ -33,10 +33,11 @@ class MainFrame(wx.Frame):
 
         self.InitUI()
         self.Centre()
+        self.total_files_downloaded = 0
 
     def InitUI(self):
         panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(4, 4)
+        sizer = wx.GridBagSizer(5, 4)
 
         text1 = wx.StaticText(panel, label="Minecraft Location")
         sizer.Add(text1, pos=(0, 0), flag=wx.TOP|wx.LEFT|wx.BOTTOM)
@@ -54,15 +55,28 @@ class MainFrame(wx.Frame):
         self.uninstallButton.Bind(wx.EVT_BUTTON, self.onUninstallButtonPress) 
         sizer.Add(self.uninstallButton, pos=(3, 0))
 
+        self.gauge = wx.Gauge(panel, size=(250, 25), style=wx.GA_HORIZONTAL)
+        sizer.Add(self.gauge, pos=(3, 1))
+
         self.installButton = wx.Button(panel, label="Install / Verify")
         self.installButton.Bind(wx.EVT_BUTTON, self.onInstallButtonPress) 
         sizer.Add(self.installButton, pos=(3, 4))
+
+        text2 = wx.StaticText(panel, label="© 2021 Ruinscraft, LLC")
+        sizer.Add(text2, pos=(4, 0))
 
         sizer.AddGrowableCol(1)
         sizer.AddGrowableCol(2)
         sizer.AddGrowableRow(2)
 
         panel.SetSizer(sizer)
+
+    def setGaugeRange(self, range):
+        self.gauge.SetRange(range)
+
+    def updateGauge(self):
+        self.total_files_downloaded = self.total_files_downloaded + 1
+        wx.CallAfter(self.gauge.SetValue, self.total_files_downloaded)
 
     def onChooseButtonPress(self, event):
         dialog = wx.DirDialog(None, "Choose Minecraft Location:")
@@ -86,17 +100,18 @@ class MainFrame(wx.Frame):
         import uninstall
         uninstall.uninstall(minecraft_path)
         self.log("Uninstall Complete!")
-        wx.MessageBox("Steve Cinema content has been removed from your system.", "Complete!")
+        wx.CallAfter(wx.MessageBox, "Steve Cinema content has been removed from your system.", "Complete!")
         self.enableButtons()
 
     def install(self):
+        self.total_files_downloaded = 0
         self.disableButtons()
         verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path)
         verify_mods(mods_manifest, minecraft_path)
         verify_launcher_profile(minecraft_path, profile_name)
         verify_profiles_json(minecraft_path, profile_name)
         self.log("Installation Complete!")
-        wx.MessageBox("You may close this program. Open Minecraft with the new Steve Cinema profile to play!", "Complete!")
+        wx.CallAfter(wx.MessageBox, "You may close this program. Open Minecraft with the new Steve Cinema profile to play!", "Complete!")
         self.enableButtons()
 
     def disableButtons(self):
@@ -142,6 +157,7 @@ def download_file(url, dest_path):
     mainFrame.log("Downloading " + url + " -> " + dest_path)
     urllib.request.urlretrieve(url.replace(" ", "%20"), dest_path)
     mainFrame.log("Complete")
+    mainFrame.updateGauge()
 
 def manifest_entry_get_file(entry):
     return ' '.join(entry[0:len(entry) - 1])
@@ -405,6 +421,11 @@ cef_bsdiff_manifest = download_cef_bsdiff_manifest()
 # Format fabric meta URL
 profile_name = installer_manifest[2][1]
 profile_url = profile_url_format.format(profile_name)
+
+total_files_to_download = 0
+total_files_to_download += len(cef_nocodec_manifest)
+total_files_to_download += len(cef_bsdiff_manifest)
+mainFrame.setGaugeRange(total_files_to_download)
 # ======== Manifests ========
 
 # LETS GET THE SHOW STARTED
