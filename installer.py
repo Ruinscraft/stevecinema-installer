@@ -37,30 +37,30 @@ class MainFrame(wx.Frame):
 
     def InitUI(self):
         panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(5, 4)
+        sizer = wx.GridBagSizer(5, 5)
 
         text1 = wx.StaticText(panel, label="Minecraft Location")
         sizer.Add(text1, pos=(0, 0), flag=wx.TOP|wx.LEFT|wx.BOTTOM)
         
         self.mcLocText = wx.TextCtrl(panel, value=minecraft_path)
-        sizer.Add(self.mcLocText, pos=(1, 0), span=(1, 4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
+        sizer.Add(self.mcLocText, pos=(1, 0), span=(1, 5), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
         mcLocButton = wx.Button(panel, label="Choose")
         mcLocButton.Bind(wx.EVT_BUTTON, self.onChooseButtonPress) 
-        sizer.Add(mcLocButton, pos=(1, 4))
+        sizer.Add(mcLocButton, pos=(1, 5))
 
         self.logCtrl = wx.TextCtrl(panel, style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
-        sizer.Add(self.logCtrl, pos=(2, 0), span=(1, 5), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
+        sizer.Add(self.logCtrl, pos=(2, 0), span=(1, 6), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
 
         self.uninstallButton = wx.Button(panel, label="Uninstall")
         self.uninstallButton.Bind(wx.EVT_BUTTON, self.onUninstallButtonPress) 
         sizer.Add(self.uninstallButton, pos=(3, 0))
 
-        self.gauge = wx.Gauge(panel, size=(250, 25), style=wx.GA_HORIZONTAL)
-        sizer.Add(self.gauge, pos=(3, 1))
-
         self.installButton = wx.Button(panel, label="Install / Verify")
         self.installButton.Bind(wx.EVT_BUTTON, self.onInstallButtonPress) 
-        sizer.Add(self.installButton, pos=(3, 4))
+        sizer.Add(self.installButton, pos=(3, 5))
+
+        self.gauge = wx.Gauge(panel, style=wx.EXPAND)
+        sizer.Add(self.gauge, pos=(3, 1), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
 
         text2 = wx.StaticText(panel, label="© 2021 Ruinscraft, LLC")
         sizer.Add(text2, pos=(4, 0))
