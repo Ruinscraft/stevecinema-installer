@@ -12,6 +12,9 @@ cef_codec_manifest_url_format   = "https://storage.googleapis.com/stevecinema-us
 cef_bsdiff_release_url_format   = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/bsdiff/Release/"
 cef_bsdiff_manifest_url_format  = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/bsdiff/manifest.txt"
 
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 import os
 import sys
 import json
@@ -40,22 +43,22 @@ class MainFrame(wx.Frame):
 
         text1 = wx.StaticText(panel, label="Minecraft Location")
         sizer.Add(text1, pos=(0, 0), flag=wx.TOP|wx.LEFT|wx.BOTTOM)
-        
+
         self.mcLocText = wx.TextCtrl(panel, value=self.minecraft_path)
         sizer.Add(self.mcLocText, pos=(1, 0), span=(1, 5), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
         mcLocButton = wx.Button(panel, label="Choose")
-        mcLocButton.Bind(wx.EVT_BUTTON, self.onChooseButtonPress) 
+        mcLocButton.Bind(wx.EVT_BUTTON, self.onChooseButtonPress)
         sizer.Add(mcLocButton, pos=(1, 5))
 
         self.logCtrl = wx.TextCtrl(panel, style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
         sizer.Add(self.logCtrl, pos=(2, 0), span=(1, 6), flag=wx.EXPAND|wx.LEFT|wx.RIGHT)
 
         self.uninstallButton = wx.Button(panel, label="Uninstall")
-        self.uninstallButton.Bind(wx.EVT_BUTTON, self.onUninstallButtonPress) 
+        self.uninstallButton.Bind(wx.EVT_BUTTON, self.onUninstallButtonPress)
         sizer.Add(self.uninstallButton, pos=(3, 0))
 
         self.installButton = wx.Button(panel, label="Install / Verify")
-        self.installButton.Bind(wx.EVT_BUTTON, self.onInstallButtonPress) 
+        self.installButton.Bind(wx.EVT_BUTTON, self.onInstallButtonPress)
         sizer.Add(self.installButton, pos=(3, 5))
 
         self.gauge = wx.Gauge(panel, style=wx.EXPAND)
@@ -131,8 +134,8 @@ def make_executable_nix(file_path):
     os.chmod(file_path, mode)
 
 def make_executable_recursive_nix(path):
-    for root, dirs, files in os.walk(path):  
-        for momo in dirs:  
+    for root, dirs, files in os.walk(path):
+        for momo in dirs:
             make_executable_nix(os.path.join(root, momo))
         for momo in files:
             make_executable_nix(os.path.join(root, momo))
@@ -291,7 +294,7 @@ def verify_nocodec_cef(cef_nocodec_manifest, minecraft_path):
                 make_executable_nix(os.path.join(cef_path, file_name))
         elif sys.platform == "darwin":
             make_executable_recursive_nix(cef_path)
-    
+
     mainFrame.log("Nocodec-CEF verified")
 
 def verify_codec_cef(cef_nocodec_manifest, cef_codec_manifest, cef_bsdiff_manifest, minecraft_path):
@@ -353,7 +356,7 @@ def verify_launcher_profile(minecraft_path, profile_name):
         with open(profile_json_path, "r") as file_r:
             profile = json.load(file_r)
             profile["id"] = profile_name
-            
+
             with open(profile_json_path, "w") as file_w:
                 json.dump(profile, file_w)
 
@@ -371,7 +374,7 @@ def verify_profiles_json(minecraft_path, profile_name):
     with open(profiles_json_path, "r") as file_r:
         root = json.load(file_r)
         profiles = root["profiles"]
-        
+
         if profile_name in profiles:
             profile = profiles[profile_name]
         else:
@@ -393,7 +396,7 @@ def verify_profiles_json(minecraft_path, profile_name):
 
         with open(profiles_json_path, "w") as file_w:
             json.dump(root, file_w)
-        
+
 # ======== Manifests ========
 installer_manifest = download_installer_manifest()
 mods_manifest = download_mods_manifest()
