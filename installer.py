@@ -1,3 +1,5 @@
+INSTALLER_COMPAT_VERSION = 1
+
 installer_manifest_url          = "https://storage.googleapis.com/stevecinema-us-download/installer/manifest.txt"
 profile_url_format              = "https://storage.googleapis.com/stevecinema-us-download/installer/profiles/{0}.json"
 profile_icon_url                = "https://storage.googleapis.com/stevecinema-us-download/installer/profile_icon"
@@ -13,6 +15,8 @@ cef_bsdiff_release_url_format   = "https://storage.googleapis.com/stevecinema-us
 cef_bsdiff_manifest_url_format  = "https://storage.googleapis.com/stevecinema-us-download/chromium/{0}/{1}/bsdiff/manifest.txt"
 
 import ssl
+
+from wx.core import OK
 ssl._create_default_https_context = ssl._create_unverified_context
 
 import os
@@ -400,6 +404,12 @@ def verify_profiles_json(minecraft_path, profile_name):
 # ======== Manifests ========
 installer_manifest = download_installer_manifest()
 mods_manifest = download_mods_manifest()
+
+latest_installer_compat_version = installer_manifest[0][1]
+
+if int(latest_installer_compat_version) > INSTALLER_COMPAT_VERSION:
+    wx.MessageBox("This installer version is too out of date. Please download the latest version.", style=OK)
+    exit()
 
 cef_branch = installer_manifest[1][1]
 
