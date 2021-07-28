@@ -409,7 +409,7 @@ latest_installer_compat_version = installer_manifest[0][1]
 
 if int(latest_installer_compat_version) > INSTALLER_COMPAT_VERSION:
     wx.MessageBox("This installer version is too out of date. Please download the latest version.", style=OK)
-    exit()
+    sys.exit()
 
 cef_branch = installer_manifest[1][1]
 
